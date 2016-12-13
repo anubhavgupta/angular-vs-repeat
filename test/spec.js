@@ -24,6 +24,17 @@
 
 	var animationFrame = 1000/60;
 
+	if(window._) {
+		_.debounce = function debounce(func, wait, options) {
+			function cancel() {}
+			function debounced() {
+				func();
+			}
+			debounced.cancel = cancel;
+			return debounced;
+		};
+	}
+
 	describe('vs-repeat', function(){
 		// this.timeout(1000000);
 		var $compile,
@@ -95,6 +106,7 @@
 				$element[0].scrollLeft += 200;
 
 				$element.triggerHandler('scroll');
+				$scope.$digest();
 
 				elems = getElements($element);
 				values2 = getValues(elems);
@@ -130,6 +142,7 @@
 					$scope.showFlag = true;
 					$scope.$digest();
 					setTimeout(function(){
+						$scope.$digest();
 						elems = getElements($element);
 						expect(elems.length).to.be.greaterThan(3);
 						done();
@@ -162,6 +175,7 @@
 			$element[0].scrollLeft += 200;
 
 			$element.triggerHandler('scroll');
+			$scope.$digest();
 
 			elems = getElements($element);
 			values2 = getValues(elems);
@@ -252,6 +266,7 @@
 
 			$element[0].scrollTop = 3000;
 			$element.triggerHandler('scroll');
+			$scope.$digest();			
 			expect(getElements($element).length).to.be.greaterThan(20);
 			done();
 		});
@@ -316,6 +331,7 @@
 			$element[0].scrollLeft += 200;
 
 			$element.triggerHandler('scroll');
+			$scope.$digest();
 
 			elems = getElements($element);
 			values2 = getValues(elems);

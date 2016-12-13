@@ -3,7 +3,7 @@
 // Angular Virtual Scroll Repeat v1.1.7 2016/03/08
 //
 
-(function(window, angular) {
+(function(window, angular, _) {
     'use strict';
     /* jshint eqnull:true */
     /* jshint -W038 */
@@ -69,6 +69,8 @@
     //              readjust upon window resize if the size is dependable on the viewport size
     // vs-scrolled-to-end="callback" - callback will be called when the last item of the list is rendered
     // vs-scrolled-to-end-offset="integer" - set this number to trigger the scrolledToEnd callback n items before the last gets rendered
+    // vs-check-client-size="integer" - wait value (in milliseconds) to pass into debounced check size function run on angular digest.  
+    //                                  this check is disabled if option not present for performance reasons.
 
     // EVENTS:
     // - 'vsRepeatTrigger' - an event the directive listens for to manually trigger reinitialization
@@ -259,7 +261,6 @@
                             }
                         });
 
-
                         $scope.$watchCollection(rhs, function(coll) {
                             originalCollection = coll || [];
                             refresh();
@@ -338,9 +339,7 @@
                                         if (gotSomething) {
                                             reinitialize();
                                             autoSize = false;
-                                            if ($scope.$root && !$scope.$root.$$phase) {
-                                                $scope.$apply();
-                                            }
+                                            $scope.$evalAsync();
                                         }
                                     }
                                     else {
@@ -372,31 +371,34 @@
                         $scope.startIndex = 0;
                         $scope.endIndex = 0;
 
-                        function scrollHandler() {
+                        // Throttling on scroll to update continuously during scroll
+                        var scrollHandler = function scrollHandler() {
                             if (updateInnerCollection()) {
-                                $scope.$digest();
+                                // TODO (djpark): Using $evalAsync instead of a direct $digest call appears to be causing 
+                                // a "filling in" effect when scrolling quickly
+                                $scope.$evalAsync(); 
                             }
-                        }
+                        };
+                        var throttledScrollHandler = _.throttle(scrollHandler, 200);
+                        $scrollParent.on('scroll', throttledScrollHandler);
 
-                        $scrollParent.on('scroll', scrollHandler);
-
-                        function onWindowResize() {
+                        // Debouncing on resize to hold off on updating until resize is paused for at least 200ms 
+                        var resizeHandler = function onWindowResize() {
                             if (typeof $attrs.vsAutoresize !== 'undefined') {
                                 autoSize = true;
                                 setAutoSize();
-                                if ($scope.$root && !$scope.$root.$$phase) {
-                                    $scope.$apply();
-                                }
+                                $scope.$evalAsync();
                             }
                             if (updateInnerCollection()) {
-                                $scope.$apply();
+                                $scope.$evalAsync();
                             }
-                        }
+                        };
+                        var debouncedWindowResizeHandler = _.debounce(resizeHandler, 200);
+                        angular.element(window).on('resize', debouncedWindowResizeHandler);
 
-                        angular.element(window).on('resize', onWindowResize);
                         $scope.$on('$destroy', function() {
-                            angular.element(window).off('resize', onWindowResize);
-                            $scrollParent.off('scroll', scrollHandler);
+                            angular.element(window).off('resize', debouncedWindowResizeHandler);
+                            $scrollParent.off('scroll', throttledScrollHandler);
                         });
 
                         $scope.$on('vsRepeatTrigger', refresh);
@@ -426,7 +428,7 @@
                                         $afterContent.css(getLayoutProp(), 0);
                                     });
 
-                                    $scope.$apply(function() {
+                                    $scope.$evalAsync(function() {
                                         $scope.$emit('vsRenderAllDone');
                                     });
                                 });
@@ -456,21 +458,29 @@
                             var ch = getClientSize($scrollParent[0], clientSize);
                             if (ch !== _prevClientSize) {
                                 reinitialize();
-                                if ($scope.$root && !$scope.$root.$$phase) {
-                                    $scope.$apply();
-                                }
+                                $scope.$evalAsync();
                             }
                             _prevClientSize = ch;
                         }
 
-                        $scope.$watch(function() {
+                        // Watches the client height on every $digest to reinitialize if necessary
+                        // NOTE: Debounce is used since reinitOnClientHeightChange can cause expensive
+                        // style recalculations and relayouts
+                        var _wait = angular.isDefined($attrs.vsCheckClientSize) && (+$attrs.vsCheckClientSize) ? (+$attrs.vsCheckClientSize) : 0;
+                        var debouncedWatchClientHeight = _.debounce(function() {
                             if (typeof window.requestAnimationFrame === 'function') {
                                 window.requestAnimationFrame(reinitOnClientHeightChange);
                             }
                             else {
                                 reinitOnClientHeightChange();
                             }
-                        });
+                        }, _wait);
+
+                        if(angular.isDefined($attrs.vsCheckClientSize)) {
+                            $scope.$watch(debouncedWatchClientHeight);
+                        } else {
+                            debouncedWatchClientHeight.cancel();
+                        }
 
                         function updateInnerCollection() {
                             var $scrollPosition = getScrollPos($scrollParent[0], scrollPos);
@@ -596,4 +606,4 @@
     if (typeof module !== 'undefined' && module.exports) {
         module.exports = vsRepeatModule.name;
     }
-})(window, window.angular);
+})(window, window.angular, window._);

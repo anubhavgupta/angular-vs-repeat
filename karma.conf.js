@@ -6,6 +6,7 @@ module.exports = function(config) {
 		files: [
 			'node_modules/expect.js/index.js',
 			'lib/angular.js',
+			'lib/lodash.js',
 			'src/angular-vs-repeat.min.js',
 			'lib/angular-mocks.js',
 			'test/spec.js',
