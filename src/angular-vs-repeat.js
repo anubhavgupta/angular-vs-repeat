@@ -373,13 +373,13 @@
 
                         // Throttling on scroll to update continuously during scroll
                         var scrollHandler = function scrollHandler() {
-                            if (updateInnerCollection()) {
-                                // TODO (djpark): Using $evalAsync instead of a direct $digest call appears to be causing 
-                                // a "filling in" effect when scrolling quickly
-                                $scope.$evalAsync(); 
+                            if (updateInnerCollection() && !$scope.$$phase) {
+                                // NOTE: Using $evalAsync causes a "filling in" effect when scrolling quickly
+                                // so using $digest directly
+                                $scope.$digest();
                             }
                         };
-                        var throttledScrollHandler = _.throttle(scrollHandler, 200);
+                        var throttledScrollHandler = _.throttle(scrollHandler, 100);
                         $scrollParent.on('scroll', throttledScrollHandler);
 
                         // Debouncing on resize to hold off on updating until resize is paused for at least 200ms 
