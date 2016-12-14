@@ -33,6 +33,12 @@
 			debounced.cancel = cancel;
 			return debounced;
 		};
+		_.throttle = function throttle(func, wait, options) {
+			function throttled() {
+				func();
+			}
+			return throttled;
+		};
 	}
 
 	describe('vs-repeat', function(){
