@@ -489,14 +489,17 @@
                         }
 
                         // Watches the client height on every $digest to reinitialize if necessary
+                        // Warning: This can cause style recalculations on every $digest so use with caution
                         var checkClientSize = angular.isDefined($attrs.vsCheckClientSize) && (!!$attrs.vsCheckClientSize);
                         if(checkClientSize) {
-                            if (typeof window.requestAnimationFrame === 'function') {
-                                window.requestAnimationFrame(reinitOnClientHeightChange);
-                            }
-                            else {
-                                reinitOnClientHeightChange();
-                            }
+                            $scope.$watch(function() {
+                                if (typeof window.requestAnimationFrame === 'function') {
+                                    window.requestAnimationFrame(reinitOnClientHeightChange);
+                                }
+                                else {
+                                    reinitOnClientHeightChange();
+                                }
+                            });
                         }
 
                         function updateInnerCollection() {
