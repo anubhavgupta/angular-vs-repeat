@@ -69,8 +69,10 @@
     //              readjust upon window resize if the size is dependable on the viewport size
     // vs-scrolled-to-end="callback" - callback will be called when the last item of the list is rendered
     // vs-scrolled-to-end-offset="integer" - set this number to trigger the scrolledToEnd callback n items before the last gets rendered
-    // vs-check-client-size="integer" - wait value (in milliseconds) to pass into debounced check size function run on angular digest.  
-    //                                  this check is disabled if option not present for performance reasons.
+    // vs-check-client-size="boolean" - determines if vs-repeat will check client size on every angular digest.  this is an expensive operation    
+    //                                  that adds a style recalculation on every digest so use only on containers you know will dynamically change in size
+    // vs-repeat-track-by="value" - simplified version of ngRepeat's trackBy feature which allows you to specify a unique tracking property of the
+    //                              objects in the collection being iterated over.  
 
     // EVENTS:
     // - 'vsRepeatTrigger' - an event the directive listens for to manually trigger reinitialization
@@ -208,6 +210,7 @@
                             childClone = angular.element(childCloneHtml),
                             childTagName = childClone[0].tagName.toLowerCase(),
                             originalCollection = [],
+                            trackBy = angular.isDefined($attrs.vsRepeatTrackBy) ? $attrs.vsRepeatTrackBy : undefined,
                             originalLength,
                             $$horizontal = typeof $attrs.vsHorizontal !== 'undefined',
                             $beforeContent = angular.element('<' + childTagName + ' class="vs-repeat-before-content"></' + childTagName + '>'),
@@ -261,7 +264,23 @@
                             }
                         });
 
+                        var prevCollectionKeys = [];
                         $scope.$watchCollection(rhs, function(coll) {
+                            try {
+                                if(trackBy) {
+                                    // Don't refresh if tracked property of collection does not change
+                                    var currentCollectionKeys = _.map(coll, trackBy);
+                                    if(_.isEqual(currentCollectionKeys, prevCollectionKeys)) {
+                                        return;
+                                    } else {
+                                        prevCollectionKeys = currentCollectionKeys;
+                                    }
+                                }
+                            }
+                            catch (err) {
+                                throw new Error('angular-vs-repeat: exception in trackBy handling - ' + err);
+                            }
+
                             originalCollection = coll || [];
                             refresh();
                         });
@@ -339,7 +358,9 @@
                                         if (gotSomething) {
                                             reinitialize();
                                             autoSize = false;
-                                            $scope.$evalAsync();
+                                            if ($scope.$root && !$scope.$root.$$phase) {
+                                                $scope.$apply();
+                                            }
                                         }
                                     }
                                     else {
@@ -379,7 +400,7 @@
                                 $scope.$digest();
                             }
                         };
-                        var throttledScrollHandler = _.throttle(scrollHandler, 100);
+                        var throttledScrollHandler = _.throttle(scrollHandler, 50);
                         $scrollParent.on('scroll', throttledScrollHandler);
 
                         // Debouncing on resize to hold off on updating until resize is paused for at least 200ms 
@@ -387,7 +408,9 @@
                             if (typeof $attrs.vsAutoresize !== 'undefined') {
                                 autoSize = true;
                                 setAutoSize();
-                                $scope.$evalAsync();
+                                if ($scope.$root && !$scope.$root.$$phase) {
+                                    $scope.$apply();
+                                }
                             }
                             if (updateInnerCollection()) {
                                 $scope.$evalAsync();
@@ -458,33 +481,34 @@
                             var ch = getClientSize($scrollParent[0], clientSize);
                             if (ch !== _prevClientSize) {
                                 reinitialize();
-                                $scope.$evalAsync();
+                                if ($scope.$root && !$scope.$root.$$phase) {
+                                    $scope.$apply();
+                                }
                             }
                             _prevClientSize = ch;
                         }
 
                         // Watches the client height on every $digest to reinitialize if necessary
-                        // NOTE: Debounce is used since reinitOnClientHeightChange can cause expensive
-                        // style recalculations and relayouts
-                        var _wait = angular.isDefined($attrs.vsCheckClientSize) && (+$attrs.vsCheckClientSize) ? (+$attrs.vsCheckClientSize) : 0;
-                        var debouncedWatchClientHeight = _.debounce(function() {
+                        var checkClientSize = angular.isDefined($attrs.vsCheckClientSize) && (!!$attrs.vsCheckClientSize);
+                        if(checkClientSize) {
                             if (typeof window.requestAnimationFrame === 'function') {
                                 window.requestAnimationFrame(reinitOnClientHeightChange);
                             }
                             else {
                                 reinitOnClientHeightChange();
                             }
-                        }, _wait);
-
-                        if(angular.isDefined($attrs.vsCheckClientSize)) {
-                            $scope.$watch(debouncedWatchClientHeight);
-                        } else {
-                            debouncedWatchClientHeight.cancel();
                         }
 
                         function updateInnerCollection() {
                             var $scrollPosition = getScrollPos($scrollParent[0], scrollPos);
                             var $clientSize = getClientSize($scrollParent[0], clientSize);
+
+                            // Short circuit update logic if clientSize gets set to 0 to avoid having to 
+                            // recreate all elements when a scroll container goes in and out of view (e.g. ng-show/hide)
+                            if(_prevClientSize > 0 && $clientSize === 0) {
+                                return;
+                            }
+                            _prevClientSize = $clientSize;
 
                             var scrollOffset = repeatContainer[0] === $scrollParent[0] ? 0 : getScrollOffset(
                                                     repeatContainer[0],
