@@ -69,10 +69,10 @@
     //              readjust upon window resize if the size is dependable on the viewport size
     // vs-scrolled-to-end="callback" - callback will be called when the last item of the list is rendered
     // vs-scrolled-to-end-offset="integer" - set this number to trigger the scrolledToEnd callback n items before the last gets rendered
-    // vs-check-client-size="boolean" - determines if vs-repeat will check client size on every angular digest.  this is an expensive operation    
+    // vs-check-client-size="boolean" - determines if vs-repeat will check client size on every angular digest.  this is an expensive operation
     //                                  that adds a style recalculation on every digest so use only on containers you know will dynamically change in size
     // vs-repeat-track-by="value" - simplified version of ngRepeat's trackBy feature which allows you to specify a unique tracking property of the
-    //                              objects in the collection being iterated over.  
+    //                              objects in the collection being iterated over.
 
     // EVENTS:
     // - 'vsRepeatTrigger' - an event the directive listens for to manually trigger reinitialization
@@ -266,22 +266,25 @@
 
                         var prevCollectionKeys = [];
                         $scope.$watchCollection(rhs, function(coll) {
-                            try {
-                                if(trackBy) {
-                                    // Don't refresh if tracked property of collection does not change
-                                    var currentCollectionKeys = _.map(coll, trackBy);
-                                    if(_.isEqual(currentCollectionKeys, prevCollectionKeys)) {
-                                        return;
-                                    } else {
-                                        prevCollectionKeys = currentCollectionKeys;
-                                    }
-                                }
-                            }
-                            catch (err) {
-                                throw new Error('angular-vs-repeat: exception in trackBy handling - ' + err);
+                            // 1. Update collection on scope with latest data to make sure bindings update
+                            originalCollection = coll || [];
+                            if ($scope.endIndex) {
+                                $scope[collectionName] = originalCollection.slice($scope.startIndex, $scope.endIndex);
                             }
 
-                            originalCollection = coll || [];
+                            // 2. Guard against unnecessary refreshes by checking for changes in collection count or order
+                            // Note: This trackBy doesn't need to handle duplicates since it't not managing DOM <-> model mapping
+                            if (trackBy) {
+                                // Don't refresh if tracked property of collection does not change
+                                var currentCollectionKeys = _.map(coll, trackBy);
+                                if(_.isEqual(currentCollectionKeys, prevCollectionKeys)) {
+                                    return;
+                                } else {
+                                    prevCollectionKeys = currentCollectionKeys;
+                                }
+                            }
+
+                            // 3. Do a full refresh of vs-repeat given the new collection
                             refresh();
                         });
 
@@ -403,7 +406,7 @@
                         var throttledScrollHandler = _.throttle(scrollHandler, 50);
                         $scrollParent.on('scroll', throttledScrollHandler);
 
-                        // Debouncing on resize to hold off on updating until resize is paused for at least 200ms 
+                        // Debouncing on resize to hold off on updating until resize is paused for at least 200ms
                         var resizeHandler = function onWindowResize() {
                             if (typeof $attrs.vsAutoresize !== 'undefined') {
                                 autoSize = true;
@@ -506,7 +509,7 @@
                             var $scrollPosition = getScrollPos($scrollParent[0], scrollPos);
                             var $clientSize = getClientSize($scrollParent[0], clientSize);
 
-                            // Short circuit update logic if clientSize gets set to 0 to avoid having to 
+                            // Short circuit update logic if clientSize gets set to 0 to avoid having to
                             // recreate all elements when a scroll container goes in and out of view (e.g. ng-show/hide)
                             if(_prevClientSize > 0 && $clientSize === 0) {
                                 return;
