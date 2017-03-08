@@ -24,6 +24,23 @@
 
 	var animationFrame = 1000/60;
 
+	if(window._) {
+		_.debounce = function debounce(func, wait, options) {
+			function cancel() {}
+			function debounced() {
+				func();
+			}
+			debounced.cancel = cancel;
+			return debounced;
+		};
+		_.throttle = function throttle(func, wait, options) {
+			function throttled() {
+				func();
+			}
+			return throttled;
+		};
+	}
+	
 	describe('vs-repeat', function(){
 		// this.timeout(1000000);
 		var $compile,
@@ -130,6 +147,7 @@
 					$scope.showFlag = true;
 					$scope.$digest();
 					setTimeout(function(){
+						$scope.$digest();
 						elems = getElements($element);
 						expect(elems.length).to.be.greaterThan(3);
 						done();

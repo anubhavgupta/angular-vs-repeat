@@ -89,6 +89,8 @@ example:
 - `vs-options="{latch: true}"` enables latching mode - elements once rendered are not being removed when scrolled away (improves scrolling performance when the rendering of each element is time consuming)
 - `vs-scrolled-to-end="callback"` callback will be called when the last item of the list is rendered
 - `vs-scrolled-to-end-offset="integer"` - set this number to trigger the scrolledToEnd callback n items before the last gets rendered
+- `vs-check-client-size="boolean"` - Determines if vs-repeat will check client size on every angular digest.  This is an expensive operation that adds a style recalculation on every digest so use only on containers you know will dynamically change in size
+- `vs-repeat-track-by="value"` - Simplified version of ngRepeat's trackBy feature which allows you to specify a unique tracking property of the objects in the collection being iterated over.
 
 ###EVENTS:
 - `vsRepeatTrigger` - an event the directive listens for to manually trigger reinitialization

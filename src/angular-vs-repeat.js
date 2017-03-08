@@ -3,7 +3,7 @@
 // Angular Virtual Scroll Repeat v1.1.7 2016/03/08
 //
 
-(function(window, angular) {
+(function(window, angular, _) {
     'use strict';
     /* jshint eqnull:true */
     /* jshint -W038 */
@@ -69,6 +69,10 @@
     //              readjust upon window resize if the size is dependable on the viewport size
     // vs-scrolled-to-end="callback" - callback will be called when the last item of the list is rendered
     // vs-scrolled-to-end-offset="integer" - set this number to trigger the scrolledToEnd callback n items before the last gets rendered
+    // vs-check-client-size="boolean" - determines if vs-repeat will check client size on every angular digest.  this is an expensive operation
+    //                                  that adds a style recalculation on every digest so use only on containers you know will dynamically change in size
+    // vs-repeat-track-by="value" - simplified version of ngRepeat's trackBy feature which allows you to specify a unique tracking property of the
+    //                              objects in the collection being iterated over.
 
     // EVENTS:
     // - 'vsRepeatTrigger' - an event the directive listens for to manually trigger reinitialization
@@ -206,6 +210,7 @@
                             childClone = angular.element(childCloneHtml),
                             childTagName = childClone[0].tagName.toLowerCase(),
                             originalCollection = [],
+                            trackBy = angular.isDefined($attrs.vsRepeatTrackBy) ? $attrs.vsRepeatTrackBy : undefined,
                             originalLength,
                             $$horizontal = typeof $attrs.vsHorizontal !== 'undefined',
                             $beforeContent = angular.element('<' + childTagName + ' class="vs-repeat-before-content"></' + childTagName + '>'),
@@ -259,9 +264,27 @@
                             }
                         });
 
-
+                        var prevCollectionKeys = [];
                         $scope.$watchCollection(rhs, function(coll) {
+                            // 1. Update collection on scope with latest data to make sure bindings update
                             originalCollection = coll || [];
+                            if ($scope.endIndex) {
+                                $scope[collectionName] = originalCollection.slice($scope.startIndex, $scope.endIndex);
+                            }
+
+                            // 2. Guard against unnecessary refreshes by checking for changes in collection count or order
+                            // Note: This trackBy doesn't need to handle duplicates since it't not managing DOM <-> model mapping
+                            if (trackBy) {
+                                // Don't refresh if tracked property of collection does not change
+                                var currentCollectionKeys = _.map(coll, trackBy);
+                                if(_.isEqual(currentCollectionKeys, prevCollectionKeys)) {
+                                    return;
+                                } else {
+                                    prevCollectionKeys = currentCollectionKeys;
+                                }
+                            }
+
+                            // 3. Do a full refresh of vs-repeat given the new collection
                             refresh();
                         });
 
@@ -372,15 +395,19 @@
                         $scope.startIndex = 0;
                         $scope.endIndex = 0;
 
-                        function scrollHandler() {
-                            if (updateInnerCollection()) {
+                        // Throttling on scroll to update continuously during scroll
+                        var scrollHandler = function scrollHandler() {
+                            if (updateInnerCollection() && !$scope.$$phase) {
+                                // NOTE: Using $evalAsync causes a "filling in" effect when scrolling quickly
+                                // so using $digest directly
                                 $scope.$digest();
                             }
-                        }
+                        };
+                        var throttledScrollHandler = _.throttle(scrollHandler, 50);
+                        $scrollParent.on('scroll', throttledScrollHandler);
 
-                        $scrollParent.on('scroll', scrollHandler);
-
-                        function onWindowResize() {
+                        // Debouncing on resize to hold off on updating until resize is paused for at least 200ms
+                        var resizeHandler = function onWindowResize() {
                             if (typeof $attrs.vsAutoresize !== 'undefined') {
                                 autoSize = true;
                                 setAutoSize();
@@ -389,14 +416,15 @@
                                 }
                             }
                             if (updateInnerCollection()) {
-                                $scope.$apply();
+                                $scope.$evalAsync();
                             }
-                        }
+                        };
+                        var debouncedWindowResizeHandler = _.debounce(resizeHandler, 200);
+                        angular.element(window).on('resize', debouncedWindowResizeHandler);
 
-                        angular.element(window).on('resize', onWindowResize);
                         $scope.$on('$destroy', function() {
-                            angular.element(window).off('resize', onWindowResize);
-                            $scrollParent.off('scroll', scrollHandler);
+                            angular.element(window).off('resize', debouncedWindowResizeHandler);
+                            $scrollParent.off('scroll', throttledScrollHandler);
                         });
 
                         $scope.$on('vsRepeatTrigger', refresh);
@@ -426,7 +454,7 @@
                                         $afterContent.css(getLayoutProp(), 0);
                                     });
 
-                                    $scope.$apply(function() {
+                                    $scope.$evalAsync(function() {
                                         $scope.$emit('vsRenderAllDone');
                                     });
                                 });
@@ -463,18 +491,30 @@
                             _prevClientSize = ch;
                         }
 
-                        $scope.$watch(function() {
-                            if (typeof window.requestAnimationFrame === 'function') {
-                                window.requestAnimationFrame(reinitOnClientHeightChange);
-                            }
-                            else {
-                                reinitOnClientHeightChange();
-                            }
-                        });
+                        // Watches the client height on every $digest to reinitialize if necessary
+                        // Warning: This can cause style recalculations on every $digest so use with caution
+                        var checkClientSize = angular.isDefined($attrs.vsCheckClientSize) && (!!$attrs.vsCheckClientSize);
+                        if(checkClientSize) {
+                            $scope.$watch(function() {
+                                if (typeof window.requestAnimationFrame === 'function') {
+                                    window.requestAnimationFrame(reinitOnClientHeightChange);
+                                }
+                                else {
+                                    reinitOnClientHeightChange();
+                                }
+                            });
+                        }
 
                         function updateInnerCollection() {
                             var $scrollPosition = getScrollPos($scrollParent[0], scrollPos);
                             var $clientSize = getClientSize($scrollParent[0], clientSize);
+
+                            // Short circuit update logic if clientSize gets set to 0 to avoid having to
+                            // recreate all elements when a scroll container goes in and out of view (e.g. ng-show/hide)
+                            if(_prevClientSize > 0 && $clientSize === 0) {
+                                return;
+                            }
+                            _prevClientSize = $clientSize;
 
                             var scrollOffset = repeatContainer[0] === $scrollParent[0] ? 0 : getScrollOffset(
                                                     repeatContainer[0],
@@ -596,4 +636,4 @@
     if (typeof module !== 'undefined' && module.exports) {
         module.exports = vsRepeatModule.name;
     }
-})(window, window.angular);
+})(window, window.angular, window._);
