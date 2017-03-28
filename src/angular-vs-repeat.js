@@ -210,8 +210,9 @@
                             childClone = angular.element(childCloneHtml),
                             childTagName = childClone[0].tagName.toLowerCase(),
                             originalCollection = [],
-                            trackBy = angular.isDefined($attrs.vsRepeatTrackBy) ? $attrs.vsRepeatTrackBy : undefined,
                             originalLength,
+                            trackBy = angular.isDefined($attrs.vsRepeatTrackBy) ? $attrs.vsRepeatTrackBy : undefined,
+                            collectionInitialized = false,
                             $$horizontal = typeof $attrs.vsHorizontal !== 'undefined',
                             $beforeContent = angular.element('<' + childTagName + ' class="vs-repeat-before-content"></' + childTagName + '>'),
                             $afterContent = angular.element('<' + childTagName + ' class="vs-repeat-after-content"></' + childTagName + '>'),
@@ -286,6 +287,10 @@
 
                             // 3. Do a full refresh of vs-repeat given the new collection
                             refresh();
+
+                            // 4. Mark collection as initialized
+                            // Note: Used to avoid updating inner collection on reinit call from $attrs.$observe
+                            collectionInitialized = true;
                         });
 
                         function refresh() {
@@ -509,10 +514,22 @@
                             var $scrollPosition = getScrollPos($scrollParent[0], scrollPos);
                             var $clientSize = getClientSize($scrollParent[0], clientSize);
 
-                            // Short circuit update logic if clientSize gets set to 0 to avoid having to
-                            // recreate all elements when a scroll container goes in and out of view (e.g. ng-show/hide)
-                            if(_prevClientSize > 0 && $clientSize === 0) {
-                                return;
+                            if ($clientSize === 0) {
+                                // Short circuit update logic if we already have a known client size to avoid having to refresh
+                                // every time a list goes in and out of view (e.g. ng-hide/show)
+                                if (collectionInitialized && _prevClientSize && _prevClientSize > 0) {
+                                    return;
+                                }
+                                // If client size has never been computed and the list container is returning no immediate size or
+                                // a size too small, walk up the DOM tree to find the closest parent that is visible and larger than
+                                // elementSize so we can initialize with some height. This avoids the list filling in when it comes into view.
+                                else {
+                                    var $tempParent = $scrollParent[0].parentElement;
+                                    while ($clientSize <= $scope.elementSize && $tempParent) {
+                                        $clientSize = getClientSize($tempParent, clientSize);
+                                        $tempParent = $tempParent.parentElement;
+                                    }
+                                }
                             }
                             _prevClientSize = $clientSize;
 
