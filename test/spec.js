@@ -40,7 +40,7 @@
 			return throttled;
 		};
 	}
-	
+
 	describe('vs-repeat', function(){
 		// this.timeout(1000000);
 		var $compile,
@@ -124,6 +124,9 @@
 				done();
 			});
 
+			// Note: Change from original vs-repeat behavior is that hidden elements
+			// will still have their DOM initialized so that there is no "filling in"
+			// effect as they go from hidden -> visible states.
 			it('should support rendering initially hidden element', function(done){
 				$element = $compile([
 					'<div ng-show="showFlag">',
@@ -141,8 +144,7 @@
 
 				setTimeout(function(){
 					var elems = getElements($element);
-					expect(elems.length).to.be.greaterThan(0);
-					expect(elems.length).to.be.lessThan(4);
+					expect(elems.length).to.be.greaterThan(3);
 
 					$scope.showFlag = true;
 					$scope.$digest();
@@ -206,7 +208,7 @@
 
 			var elems = getElements($element);
 			expect(elems.length).to.be.greaterThan(1);
-			expect(elems.length).to.be.lessThan(5);
+			expect(elems.length).to.be.lessThan(9);
 			done();
 		});
 
