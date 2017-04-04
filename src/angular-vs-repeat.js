@@ -288,9 +288,11 @@
                             // 3. Do a full refresh of vs-repeat given the new collection
                             refresh();
 
-                            // 4. Mark collection as initialized
+                            // 4. Mark collection as initialized if not empty
                             // Note: Used to avoid updating inner collection on reinit call from $attrs.$observe
-                            collectionInitialized = true;
+                            if (originalCollection && originalCollection.length > 0) {
+                                collectionInitialized = true;
+                            }
                         });
 
                         function refresh() {
