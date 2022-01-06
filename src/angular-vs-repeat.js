@@ -255,12 +255,17 @@
                             $afterContent.css('width', '100%');
                         }
 
+                        var rafReinitId;
+                        function rafReinit(){
+                          window.cancelAnimationFrame(rafReinitId);
+                          rafReinitId = window.requestAnimationFrame(reinitialize);
+                        }
                         Object.keys(attributesDictionary).forEach(function(key) {
                             if ($attrs[key]) {
                                 $attrs.$observe(key, function(value) {
                                     // '+' serves for getting a number from the string as the attributes are always strings
                                     $scope[attributesDictionary[key]] = +value;
-                                    reinitialize();
+                                    rafReinit();
                                 });
                             }
                         });
@@ -327,7 +332,7 @@
                                 }
                             }
 
-                            reinitialize();
+                            rafReinit();
                         }
 
                         function setAutoSize() {
