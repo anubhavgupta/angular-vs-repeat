@@ -158,6 +158,7 @@
                     originalNgRepeatAttr,
                     collectionName = '$vs_collection',
                     isNgRepeatStart = false,
+                    reinitInRAF = false,
                     attributesDictionary = {
                         'vsRepeat': 'elementSize',
                         'vsOffsetBefore': 'offsetBefore',
@@ -165,7 +166,7 @@
                         'vsScrolledToEndOffset': 'scrolledToEndOffset',
                         'vsExcess': 'excess'
                     };
-
+                
                 if (ngRepeatChild.attr('ng-repeat')) {
                     originalNgRepeatAttr = 'ng-repeat';
                     ngRepeatExpression = ngRepeatChild.attr('ng-repeat');
@@ -227,6 +228,17 @@
                             scrollPos = $$horizontal ? 'scrollLeft' : 'scrollTop';
 
                         $scope.totalSize = 0;
+                        /*
+                            This helps in preventing forced relayouts which is caused when 
+                            `reinitialize()` is called by the library internally(multiple times).
+
+                            reinitInRAF not only fixes forced relayouts by moving the reinitialization 
+                            inside RequestAnimationFrame but it also helps in reducing the number
+                            of times reinit is called by cancelling pending RAF(scheduled by the library). 
+                        */
+                        if ('enableReinitInRaf' in $attrs) {
+                            reinitInRAF = $scope.$eval($attrs.enableReinitInRaf);
+                        }
                         if (!('vsSize' in $attrs) && 'vsSizeProperty' in $attrs) {
                             console.warn('vs-size-property attribute is deprecated. Please use vs-size attribute which also accepts angular expressions.');
                         }
@@ -255,12 +267,22 @@
                             $afterContent.css('width', '100%');
                         }
 
+                        var rafReinitId;
+                        function rafReinit(){
+                            if (reinitInRAF) {
+                                window.cancelAnimationFrame(rafReinitId);
+                                rafReinitId = window.requestAnimationFrame(reinitialize);            
+                            } else {
+                                reinitialize();
+                            }
+                        }
+                        
                         Object.keys(attributesDictionary).forEach(function(key) {
                             if ($attrs[key]) {
                                 $attrs.$observe(key, function(value) {
                                     // '+' serves for getting a number from the string as the attributes are always strings
                                     $scope[attributesDictionary[key]] = +value;
-                                    reinitialize();
+                                    rafReinit();
                                 });
                             }
                         });
@@ -327,7 +349,7 @@
                                 }
                             }
 
-                            reinitialize();
+                            rafReinit();
                         }
 
                         function setAutoSize() {
