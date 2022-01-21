@@ -236,8 +236,8 @@
                             inside RequestAnimationFrame but it also helps in reducing the number
                             of times reinit is called by cancelling pending RAF(scheduled by the library). 
                         */
-                        if ('enableReinitInRAF' in $attrs) {
-                            reinitInRAF = $scope.$eval($attrs.enableReinitInRAF);
+                        if ('enableReinitInRaf' in $attrs) {
+                            reinitInRAF = $scope.$eval($attrs.enableReinitInRaf);
                         }
                         if (!('vsSize' in $attrs) && 'vsSizeProperty' in $attrs) {
                             console.warn('vs-size-property attribute is deprecated. Please use vs-size attribute which also accepts angular expressions.');
