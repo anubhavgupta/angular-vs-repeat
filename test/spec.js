@@ -407,5 +407,59 @@
 
             done();
         });
+
+		it ('should execute reinitialize multiple times without using enableReinitInRaf', function (done) {
+            $element = angular.element([
+                '	<div vs-repeat="20" vs-excess="6" vs-options="{latch: true}" class="container">',
+                '       <div ng-repeat="foo in bar" class="item">',
+                '		    <span class="value">{{foo.value}}</span>',
+                '		</div>',
+                '	</div>'
+            ].join(''));
+
+            angular.element(document.body).append($element);
+            $compile($element)($scope);
+            $scope.bar = getArray(100);
+            
+			var counter = 0;
+            var updateCounter = function(){
+                counter += 1;
+            };
+			$scope.$on('vsRepeatReinitialized', updateCounter);
+			$scope.$digest();
+			// vsRepeatReinitialized would be triggered 3 times as 3 different vs-{attributes} are used.
+            expect(counter).to.be(3);
+            done();
+        });
+
+		it ('should execute reinitialize 1 time after using enableReinitInRaf', function (done) {
+            $element = angular.element([
+                '	<div vs-repeat="20" vs-excess="6" vs-options="{latch: true}" enable-reinit-in-raf="true" class="container">',
+                '       <div ng-repeat="foo in bar" class="item">',
+                '		    <span class="value">{{foo.value}}</span>',
+                '		</div>',
+                '	</div>'
+            ].join(''));
+
+            angular.element(document.body).append($element);
+            $compile($element)($scope);
+            $scope.bar = getArray(100);
+            
+			var counter = 0;
+            var updateCounter = function(){
+                counter += 1;
+            };
+			$scope.$on('vsRepeatReinitialized', updateCounter);
+			$scope.$digest();
+
+			setTimeout(function () {
+				setTimeout(function () {
+					// wait for RAF to complete
+					// vsRepeatReinitialized would be triggered 1 time as all the calls are debounced behind RAF.
+					expect(counter).to.be(1);
+					done();
+				}, animationFrame);
+			}, animationFrame);
+        });
     });
 })();
