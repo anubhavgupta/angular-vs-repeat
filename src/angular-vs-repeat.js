@@ -452,6 +452,9 @@
                         angular.element(window).on('resize', debouncedWindowResizeHandler);
 
                         $scope.$on('$destroy', function() {
+                            if (reinitInRAF) {
+                                window.cancelAnimationFrame(rafReinitId);
+                            }                            
                             angular.element(window).off('resize', debouncedWindowResizeHandler);
                             $scrollParent.off('scroll', throttledScrollHandler);
                         });
