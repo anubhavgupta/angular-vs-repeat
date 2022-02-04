@@ -408,7 +408,7 @@
             done();
         });
 
-		it ('should execute reinitialize multiple times without using enableReinitInRaf', function (done) {
+	it ('should execute reinitialize multiple times without using enableReinitInRaf', function (done) {
             $element = angular.element([
                 '	<div vs-repeat="20" vs-excess="6" vs-options="{latch: true}" class="container">',
                 '       <div ng-repeat="foo in bar" class="item">',
@@ -432,7 +432,7 @@
             done();
         });
 
-		it ('should execute reinitialize 1 time after using enableReinitInRaf', function (done) {
+	it ('should execute reinitialize 1 time after using enableReinitInRaf', function (done) {
             $element = angular.element([
                 '	<div vs-repeat="20" vs-excess="6" vs-options="{latch: true}" enable-reinit-in-raf="true" class="container">',
                 '       <div ng-repeat="foo in bar" class="item">',
@@ -449,17 +449,17 @@
             var updateCounter = function(){
                 counter += 1;
             };
-			$scope.$on('vsRepeatReinitialized', updateCounter);
-			$scope.$digest();
+	    $scope.$on('vsRepeatReinitialized', updateCounter);
+	    $scope.$digest();
 
-			setTimeout(function () {
-				setTimeout(function () {
-					// wait for RAF to complete
-					// vsRepeatReinitialized would be triggered 1 time as all the calls are debounced behind RAF.
-					expect(counter).to.be(1);
-					done();
-				}, animationFrame);
-			}, animationFrame);
+            setTimeout(function () {
+	        setTimeout(function () {
+		    // wait for RAF to complete
+		    // vsRepeatReinitialized would be triggered 1 time as all the calls are debounced behind RAF.
+		    expect(counter).to.be(1);
+		    done();
+		}, animationFrame);
+    	    }, animationFrame);
         });
     });
 })();
