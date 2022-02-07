@@ -268,10 +268,17 @@
                         }
 
                         var rafReinitId;
+                        var isRafReinitAlreadyScheduled = false;
                         function rafReinit(){
                             if (reinitInRAF) {
-                                window.cancelAnimationFrame(rafReinitId);
-                                rafReinitId = window.requestAnimationFrame(reinitialize);            
+                                if (!isRafReinitAlreadyScheduled) {
+                                    isRafReinitAlreadyScheduled = true;
+                                    rafReinitId = window.requestAnimationFrame(function() {
+                                        // as we are about to execute reinit, so clearing the lock.
+                                        isRafReinitAlreadyScheduled = false;
+                                        reinitialize();
+                                    });            
+                                }
                             } else {
                                 reinitialize();
                             }
